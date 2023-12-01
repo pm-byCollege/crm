@@ -9,15 +9,41 @@ import com.pm.crm.utils.UserIDBase64;
 import com.pm.crm.vo.User;
 import freemarker.template.utility.StringUtil;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.util.ArrayList;
 
 @Service
 public class UserService extends BaseService<User, Integer> {
 
     @Resource
     private UserMapper userMapper;
+
+    /*
+    * 修改密码
+    * */
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updatePwd(Integer userId, String oldPwd, String newPwd, String repeatPwd) {
+        User user = userMapper.selectByPrimaryKey(userId);
+        AssertUtil.isTrue(null == user, "用户不存在");
+        checkPasswordParams(user, oldPwd, newPwd, repeatPwd);
+        // 设置新密码
+        user.setUserPwd(Md5Util.encode(newPwd));
+
+        AssertUtil.isTrue(userMapper.updateByPrimaryKeySelective(user) < 1, "修改密码失败");
+    }
+
+    private void checkPasswordParams(User user, String oldPwd, String newPwd, String repeatPwd) {
+        AssertUtil.isTrue(StringUtils.isEmpty(oldPwd), "旧密码不能为空");
+        AssertUtil.isTrue(StringUtils.isEmpty(newPwd), "新密码不能为空");
+        AssertUtil.isTrue(StringUtils.isEmpty(repeatPwd), "确认密码不能为空");
+        AssertUtil.isTrue(!user.getUserPwd().equals(Md5Util.encode(oldPwd)) ,"原始密码不正确");
+        AssertUtil.isTrue(oldPwd.equals(newPwd), "新密码不能与原始密码相同");
+        AssertUtil.isTrue(!newPwd.equals(repeatPwd), "确认密码与新密码不一致");
+    }
 
     /*
     * 用户登录
